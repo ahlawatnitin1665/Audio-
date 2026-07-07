@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor - Rajesh Sharma Monitoring</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: #28a745;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .status-indicator {
+            background: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #28a745;
+        }
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        .alert-section {
+            background: #fff3cd;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+        }
+        .alert-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Doctor - Real-Time Patient Monitor</h1>
+            <h2>Rajesh Sharma (Patient ID: rajesh sharma)</h2>
+            <div class="status-indicator">
+                🔴 LIVE MONITORING - Status: Active
+            </div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value" id="distress-score">0.000</div>
+                <div class="metric-label">Distress Score</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="alert-level">Normal</div>
+                <div class="metric-label">Alert Level</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="dominant-class">noise</div>
+                <div class="metric-label">Dominant Class</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="audio-status">Active</div>
+                <div class="metric-label">Audio Input</div>
+            </div>
+        </div>
+
+        <div class="alert-section">
+            <h3>🚨 Alert Status</h3>
+            <div id="alert-list">
+                <div class="alert-item">
+                    <strong>Normal:</strong> Patient status: Normal - No significant distress detected
+                </div>
+            </div>
+        </div>
+
+        <div class="audio-feed">
+            <h3>🎵 Audio Stream</h3>
+            <p>Real-time audio monitoring is active for Rajesh Sharma.</p>
+            <p>Audio chunks are being processed and sent to the backend for analysis.</p>
+        </div>
+
+        <div id="messages"></div>
+    </div>
+
+    <script>
+        const socket = io();
+        let alertHistory = [];
+        
+        socket.on('connect', () => {
+            console.log('Connected to WebSocket');
+            socket.emit('start_session', { patient_id: 'rajesh sharma' });
+            showSuccess('✅ Connected to real-time monitoring for Rajesh Sharma');
+        });
+        
+        socket.on('session_started', (data) => {
+            console.log('Session started:', data);
+        });
+        
+        socket.on('analysis_result', (data) => {
+            console.log('Analysis result:', data);
+            
+            // Update metrics
+            document.getElementById('distress-score').textContent = data.distress_score.toFixed(3);
+            document.getElementById('alert-level').textContent = data.alert_level || 'Normal';
+            document.getElementById('dominant-class').textContent = data.dominant_class || 'noise';
+            
+            // Update alert status
+            updateAlertList(data);
+            
+            showSuccess(`📊 New result: Score ${data.distress_score.toFixed(3)}, Alert: ${data.alert_level}`);
+        });
+        
+        socket.on('audio_result', (data) => {
+            console.log('Audio result:', data);
+            
+            // Update audio metrics
+            document.getElementById('distress-score').textContent = data.audio_score.toFixed(3);
+            document.getElementById('alert-level').textContent = data.alert_level || 'Normal';
+        });
+        
+        socket.on('session_ended', (data) => {
+            console.log('Session ended:', data);
+            showSuccess('Session ended: ' + JSON.stringify(data));
+        });
+        
+        socket.on('error', (data) => {
+            console.error('WebSocket error:', data);
+            showError('❌ Error: ' + data.message);
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('Disconnected');
+            showError('⚠️ Disconnected from server. Reconnecting...');
+            setTimeout(() => {
+                socket.connect();
+            }, 2000);
+        });
+        
+        function updateAlertList(data) {
+            const alertItem = {
+                level: data.alert_level,
+                message: data.alert_message || 'Analysis completed',
+                timestamp: new Date().toLocaleTimeString(),
+                data: data
+            };
+            alertHistory.unshift(alertItem);
+            if (alertHistory.length > 5) alertHistory.pop();
+            
+            const alertList = document.getElementById('alert-list');
+            alertList.innerHTML = alertHistory.map(alert => {
+                const levelClass = alert.level === 'HIGH DISTRESS' ? 'error' : 
+                                 alert.level === 'MODERATE DISTRESS' ? 'alert-section' : 
+                                 'alert-item';
+                const icon = alert.level === 'HIGH DISTRESS' ? '🚨' : 
+                          alert.level === 'MODERATE DISTRESS' ? '⚠️' : '✅';
+                return `<div class="${levelClass}">
+                    <strong>${icon} ${alert.level}:</strong> ${alert.message}
+                    <br><small>${alert.timestamp}</small>
+                </div>`;
+            }).join('');
+        }
+        
+        function showSuccess(message) {
+            const messagesDiv = document.getElementById('messages');
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            messagesDiv.appendChild(successDiv);
+            setTimeout(() => successDiv.remove(), 3000);
+        }
+        
+        function showError(message) {
+            const messagesDiv = document.getElementById('messages');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            messagesDiv.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 3000);
+        }
+    </script>
+</body>
+</html>

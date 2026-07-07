@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Doctor AI Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #667eea; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .metric { padding: 20px; margin: 10px 0; background: #f8f9fa; border-radius: 5px; }
+        .critical { border-left: 4px solid red; }
+        .normal { border-left: 4px solid green; }
+        .live { background: #ffcccc; padding: 10px; margin-bottom: 20px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👨‍⚕️ Doctor AI Live Monitoring</h1>
+            <h2>Rajesh Sharma (Patient ID: rajesh sharma)</h2>
+        </div>
+
+        <div class="live">
+            <h3>🔴 LIVE Monitoring Status</h3>
+            <p>Connection: <span id="connection-status">Unknown</span> | Model: <span id="model-status">Ready</span></p>
+        </div>
+
+        <div class="metric critical">
+            <h3>📊 Real-time Metrics</h3>
+            <div>Distress Score: <span id="distress-score">0.000</span></div>
+            <div>Alert Level: <span id="alert-level">Normal</span></div>
+            <div>Dominant Class: <span id="dominant-class">noise</span></div>
+            <div>Confidence: <span id="confidence">100.0%</span></div>
+            <div>Audio Input: <span id="audio-status">Active</span></div>
+        </div>
+
+        <div class="metric">
+            <h3>🔌 API Endpoints</h3>
+            <div>POST /api/audio - Receive audio chunks</div>
+            <div>GET /status - Get monitoring status</div>
+        </div>
+
+        <button onclick="testApi()">Test API Connection</button>
+        <button onclick="refreshPage()">Refresh Page</button>
+
+        <div id="messages"></div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('Connected');
+            document.getElementById('connection-status').textContent = 'Connected';
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected');
+            document.getElementById('connection-status').textContent = 'Disconnected';
+        });
+
+        socket.on('analysis_result', (data) => {
+            console.log('Analysis:', data);
+            document.getElementById('distress-score').textContent = data.distress_score.toFixed(3);
+            document.getElementById('alert-level').textContent = data.alert_level || 'Normal';
+            document.getElementById('dominant-class').textContent = data.dominant_class || 'noise';
+            document.getElementById('confidence').textContent = (data.confidence * 100).toFixed(1) + '%';
+        });
+
+        function testApi() {
+            fetch('/api/audio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({chunk: new Array(16000).fill(0.1), sample_rate: 16000})
+            })
+            .then(res => res.json())
+            .then(data => console.log('API Response:', data))
+            .catch(err => console.log('API Error:', err));
+        }
+
+        function refreshPage() {
+            window.location.reload();
+        }
+    </script>
+</body>
+</html>

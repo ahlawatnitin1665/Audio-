@@ -1,0 +1,49 @@
+# Patient Audio Distress Detection Configuration
+
+data:
+  raw_dir: "data/raw/vocal_bursts"
+  processed_dir: "data/processed"
+  splits_dir: "data/splits"
+  sample_rate: 16000
+  duration: 3.0
+  n_mels: 64
+  n_mfcc: 13
+  hop_length: 512
+  n_fft: 1024
+
+classes:
+  coughing: 0
+  crying: 1
+  groaning: 2
+  gasping: 3
+  normal: 4
+  num_classes: 5
+
+model:
+  conv_channels: [32, 64, 128, 256]
+  fc_dims: [256, 128]
+  dropout: 0.3
+
+training:
+  batch_size: 32
+  learning_rate: 0.001
+  num_epochs: 50
+  patience: 10
+  weight_decay: 0.0001
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+
+distress:
+  weights:
+    coughing: 0.4
+    crying: 0.8
+    groaning: 0.6
+    gasping: 1.0
+  high_threshold: 0.7
+  moderate_threshold: 0.4
+
+inference:
+  chunk_duration: 3.0
+  overlap: 0.5
+  checkpoint: "checkpoints/best_model.pth"

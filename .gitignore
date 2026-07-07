@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+venv312/
+data/
+checkpoints/
+eval_output/
+pipeline_output/
+archive/
+audio_capture.log
+audio_log.jsonl
+test_gasp_noise.wav
+process_remaining.zip
+.DS_Store
+Thumbs.db
