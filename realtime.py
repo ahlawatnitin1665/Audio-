@@ -80,6 +80,7 @@ def is_speech(chunk, den_chunk, pre_norm_rms=None, pre_norm_peak=None):
     return not decision
 
 def process_chunk(raw_chunk, chunk_idx, pre_norm_rms=None, pre_norm_peak=None):
+    raw_filt = notch.apply_notch_filter(raw_chunk, TARGET_SR)
     den = denoise_chunk(raw_chunk)
     den = notch.apply_notch_filter(den, TARGET_SR)
 
@@ -102,14 +103,18 @@ def process_chunk(raw_chunk, chunk_idx, pre_norm_rms=None, pre_norm_peak=None):
         })
         return 0.0, "Normal"
 
+    pred_r, conf_r, score_r, lvl_r, pri_r, probs_r = classify_chunk(raw_filt)
     pred_d, conf_d, score_d, lvl_d, pri_d, probs_d = classify_chunk(den)
+    raw_class, den_class, den_conf = pred_r, pred_d, conf_d
 
     frame_size = int(TARGET_SR * 0.05)
-    frames = [den[i:i + frame_size] for i in range(0, len(den) - frame_size, frame_size // 2)]
+    frames = [raw_filt[i:i + frame_size] for i in range(0, len(raw_filt) - frame_size, frame_size // 2)]
     frame_rms = [np.sqrt(np.mean(f**2)) for f in frames if len(f) == frame_size]
     rms_var = np.var(frame_rms) / (np.mean(frame_rms) ** 2 + 1e-8)
 
-    if pred_d == "gasping" and rms_var < 0.008 and conf_d < 0.5:
+    if pred_d == "gasping" and pred_r != "gasping" and conf_r > 0.15:
+        pred_d, conf_d, score_d, lvl_d, pri_d, probs_d = pred_r, conf_r, score_r, lvl_r, pri_r, probs_r
+    elif pred_d == "gasping" and rms_var < 0.008 and conf_d < 0.5:
         pred_d, conf_d, score_d, lvl_d, pri_d, probs_d = \
             "noise", 1.0, 0.0, "Normal", "OK", NOISE_PROBS
     elif pred_d == "gasping" and conf_d < 0.25:
@@ -124,7 +129,7 @@ def process_chunk(raw_chunk, chunk_idx, pre_norm_rms=None, pre_norm_peak=None):
     print(f"  Alert: {lvl_d} ({pri_d})")
     print(f"  Dominant: {pred_d} ({conf_d:.1%})")
     print(f"  Probs: {prob_str}")
-    print(f"  [ENVELOPE] rms_var={rms_var:.5f}")
+    print(f"  [ENVELOPE] rms_var={rms_var:.5f}  raw={raw_class}({conf_r:.1%})  den={den_class}({den_conf:.1%})")
 
     send_to_backend({
         "patient_id": PATIENT_ID,
