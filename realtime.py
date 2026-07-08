@@ -101,6 +101,18 @@ def process_chunk(raw_chunk, chunk_idx, pre_norm_rms=None, pre_norm_peak=None):
 
     pred_d, conf_d, score_d, lvl_d, pri_d, probs_d = classify_chunk(den)
 
+    noise_idx = class_names.index("noise")
+    gasping_idx = class_names.index("gasping")
+
+    if pred_d == "gasping" and conf_d < 0.4 and probs_d[noise_idx] > 0.15:
+        pred_d, conf_d, score_d, lvl_d, pri_d, probs_d = \
+            "noise", 1.0, 0.0, "Normal", "OK", NOISE_PROBS
+    elif pred_d == "gasping" and conf_d < 0.25:
+        pred_d, conf_d, score_d, lvl_d, pri_d, probs_d = \
+            "noise", 1.0, 0.0, "Normal", "OK", NOISE_PROBS
+    elif pred_d == "gasping":
+        pass
+
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     prob_str = " ".join(f"{class_names[i]}={probs_d[i]:.2f}" for i in range(len(class_names)))
 
