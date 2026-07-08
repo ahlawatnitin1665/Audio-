@@ -73,7 +73,7 @@ def is_speech(chunk, den_chunk, pre_norm_rms=None, pre_norm_peak=None):
     raw_rms = pre_norm_rms if pre_norm_rms is not None else np.sqrt(np.mean(chunk**2))
     peak = pre_norm_peak if pre_norm_peak is not None else np.max(np.abs(chunk))
     crest = peak / max(raw_rms, 1e-8)
-    decision = raw_rms < 0.006 and crest < 5.0
+    decision = raw_rms < 0.003 and crest < 4.0
     print(f"  [GATE] raw_rms={raw_rms:.5f}  crest={crest:.1f}  is_speech={not decision}")
     return not decision
 
@@ -99,55 +99,29 @@ def process_chunk(raw_chunk, chunk_idx, pre_norm_rms=None, pre_norm_peak=None):
         })
         return 0.0, "Normal"
 
-    pred_r, conf_r, score_r, lvl_r, pri_r, probs_r = classify_chunk(raw_chunk)
     pred_d, conf_d, score_d, lvl_d, pri_d, probs_d = classify_chunk(den)
 
-    sorted_idx = np.argsort(probs_r)[::-1]
-    top1_conf = probs_r[sorted_idx[0]]
-    top2_conf = probs_r[sorted_idx[1]]
-    gap = top1_conf - top2_conf
-
-    if pred_r == "gasping":
-        if gap > 0.5 and pred_d in ("noise", "normal") and conf_d >= 0.3:
-            best_class, best_conf, best_score, best_level, best_priority, best_probs = \
-                "noise", 1.0, 0.0, "Normal", "OK", NOISE_PROBS
-        elif top2_conf > 0.1:
-            best_probs = probs_r
-            best_class = class_names[sorted_idx[1]]
-            best_conf = top2_conf
-            best_score = distress.calculate(best_probs)
-            best_level, best_priority = distress.get_alert_level(best_score)
-        elif pred_d == "gasping":
-            best_class, best_conf, best_score, best_level, best_priority, best_probs = \
-                "gasping", max(conf_r, conf_d), score_d, lvl_d, pri_d, probs_d
-        else:
-            best_class, best_conf, best_score, best_level, best_priority, best_probs = \
-                "noise", 1.0, 0.0, "Normal", "OK", NOISE_PROBS
-    else:
-        best_class, best_conf, best_score, best_level, best_priority, best_probs = \
-            pred_r, conf_r, score_r, lvl_r, pri_r, probs_r
-
     now = time.strftime("%Y-%m-%d %H:%M:%S")
-    prob_str = " ".join(f"{class_names[i]}={best_probs[i]:.2f}" for i in range(len(class_names)))
+    prob_str = " ".join(f"{class_names[i]}={probs_d[i]:.2f}" for i in range(len(class_names)))
 
     print(f"\n[{now}]")
-    print(f"  Distress Score: {best_score:.3f}")
-    print(f"  Alert: {best_level} ({best_priority})")
-    print(f"  Dominant: {best_class} ({best_conf:.1%})")
+    print(f"  Distress Score: {score_d:.3f}")
+    print(f"  Alert: {lvl_d} ({pri_d})")
+    print(f"  Dominant: {pred_d} ({conf_d:.1%})")
     print(f"  Probs: {prob_str}")
 
     send_to_backend({
         "patient_id": PATIENT_ID,
         "timestamp_unix": time.time(),
-        "distress_score": float(best_score),
-        "alert_level": best_level,
-        "priority": best_priority,
-        "dominant_class": best_class,
-        "confidence": float(best_conf),
-        "probabilities": {class_names[i]: float(best_probs[i]) for i in range(len(class_names))},
+        "distress_score": float(score_d),
+        "alert_level": lvl_d,
+        "priority": pri_d,
+        "dominant_class": pred_d,
+        "confidence": float(conf_d),
+        "probabilities": {class_names[i]: float(probs_d[i]) for i in range(len(class_names))},
     })
 
-    return best_score, best_level
+    return score_d, lvl_d
 
 print(f"\n{'='*50}")
 print(f"  REAL-TIME MIC MONITORING")
