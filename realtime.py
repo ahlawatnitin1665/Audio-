@@ -101,20 +101,15 @@ def process_chunk(raw_chunk, chunk_idx, pre_norm_rms=None, pre_norm_peak=None):
 
     pred_d, conf_d, score_d, lvl_d, pri_d, probs_d = classify_chunk(den)
 
-    noise_idx = class_names.index("noise")
-
     frame_size = int(TARGET_SR * 0.05)
     frames = [den[i:i + frame_size] for i in range(0, len(den) - frame_size, frame_size // 2)]
     frame_rms = [np.sqrt(np.mean(f**2)) for f in frames if len(f) == frame_size]
     rms_var = np.var(frame_rms) / (np.mean(frame_rms) ** 2 + 1e-8)
 
-    if pred_d == "gasping" and rms_var < 0.015:
+    if pred_d == "gasping" and rms_var < 0.008 and conf_d < 0.5:
         pred_d, conf_d, score_d, lvl_d, pri_d, probs_d = \
             "noise", 1.0, 0.0, "Normal", "OK", NOISE_PROBS
-    elif pred_d == "gasping" and conf_d < 0.35:
-        pred_d, conf_d, score_d, lvl_d, pri_d, probs_d = \
-            "noise", 1.0, 0.0, "Normal", "OK", NOISE_PROBS
-    elif pred_d == "gasping" and probs_d[noise_idx] > 0.12:
+    elif pred_d == "gasping" and conf_d < 0.25:
         pred_d, conf_d, score_d, lvl_d, pri_d, probs_d = \
             "noise", 1.0, 0.0, "Normal", "OK", NOISE_PROBS
 
