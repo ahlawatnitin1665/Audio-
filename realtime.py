@@ -5,6 +5,7 @@ from patient_config import select_patient
 from model import PatientAudioCNN, NUM_CLASSES, DistressCalculator
 from preprocessing import extract_features, normalize_audio, TARGET_SR, N_SAMPLES
 from train_spec_denoiser import SpecUNet, stft, istft
+from noise_filter import ICUNoiseFilter
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,6 +43,7 @@ else:
 classifier.eval()
 
 distress = DistressCalculator()
+notch = ICUNoiseFilter()
 class_names = ["coughing", "crying", "groaning", "gasping", "normal", "noise"]
 print(f"Loaded models on {DEVICE}")
 
@@ -79,6 +81,7 @@ def is_speech(chunk, den_chunk, pre_norm_rms=None, pre_norm_peak=None):
 
 def process_chunk(raw_chunk, chunk_idx, pre_norm_rms=None, pre_norm_peak=None):
     den = denoise_chunk(raw_chunk)
+    den = notch.apply_notch_filter(den, TARGET_SR)
 
     if not is_speech(raw_chunk, den, pre_norm_rms=pre_norm_rms, pre_norm_peak=pre_norm_peak):
         now = time.strftime("%Y-%m-%d %H:%M:%S")
